@@ -1,9 +1,6 @@
-library(dplyr)
+runQuery <- function(endpoint, session, args) {
 
-runQuery <- function(endpoint, client, args) {
-  body <- c(args, accessKey = "")
-
-  url <- paste0(client$host, endpoint)
+  url <- paste0(session$host, endpoint)
   response <- httr::POST(url, body = body, httr::content_type_json(), encode = "json")
 
   if (httr::status_code(response) != 200) {
@@ -14,11 +11,11 @@ runQuery <- function(endpoint, client, args) {
   content <- httr::content(response, "text", encoding = "UTF-8")
   parsedContent <- jsonlite::fromJSON(content)
 
-  if (client$expireOnUpdate) {
-    previousDataVersion <- client$dataVersion
+  if (session$expireOnUpdate) {
+    previousDataVersion <- session$dataVersion
     currentDataVersion <- parsedContent$info$dataVersion
     if (is.null(previousDataVersion)) {
-      client$dataVersion <<- currentDataVersion
+      session$dataVersion <<- currentDataVersion
     } else if (previousDataVersion != currentDataVersion) {
       stop(paste0("The session has expired due to an update of data. The data version was changed from ", previousDataVersion, " to ", currentDataVersion, ". Please create a new session."))
     }
@@ -27,46 +24,42 @@ runQuery <- function(endpoint, client, args) {
   return(parsedContent$data)
 }
 
-getAggregated <- function(client, ...) {
+getAggregated <- function(session, ...) {
   args <- list(...)
   # TODO validate the arguments
   # TODO convert arguments as needed: e.g., fields must be an array even it has only one element
 
-  return(runQuery("/sample/aggregated", client, args))
+  return(runQuery("/sample/aggregated", session, args))
 }
 
-getDetails <- function(client, ...) {
+getDetails <- function(session, ...) {
   args <- list(...)
   # TODO validate the arguments
   # TODO convert arguments as needed: e.g., fields must be an array even it has only one element
 
-  return(runQuery("/sample/details", client, args))
+  return(runQuery("/sample/details", session, args))
 }
 
-getNucleotideMutations <- function(client, ...) {
+getNucleotideMutations <- function(session, ...) {
   args <- list(...)
   # TODO validate the arguments
   # TODO convert arguments as needed: e.g., fields must be an array even it has only one element
 
-  return(runQuery("/sample/nucleotide", client, args))
+  return(runQuery("/sample/nucleotide", session, args))
 }
 
 initialize <- function(host, expireOnUpdate) {
-  client <- list(
+  session <- list(
     host = host,
     expireOnUpdate = expireOnUpdate
   )
-  return(client)
+  return(session)
 }
 
 
 session <- initialize("https://s1.int.genspectrum.org/gisaid", expireOnUpdate = TRUE)
 
-# With pipe
-session %>% getAggregated(country = "Switzerland", orderBy = "count")
-session %>% getDetails(country = "Switzerland", limit = 10)
-
-# Without pipe
 getAggregated(session, country = "Switzerland")
+getDetails(session, country = "Switzerland", limit = 10)
 
 
