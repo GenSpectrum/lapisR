@@ -1,4 +1,4 @@
-accessKey <- "9Cb3CqmrFnVjO3XCxQLO6gUnKPd"
+accessKey <- ""
 
 #' GET request to LAPIS
 #'
