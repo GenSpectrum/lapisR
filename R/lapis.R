@@ -4,13 +4,14 @@ accessKey <- "9Cb3CqmrFnVjO3XCxQLO6gUnKPd"
 #'
 #' Makes a GET request to a LAPIS endpoint and parses the response
 #' @param url Request URL
-#' @param ... Additional filters
+#' @param args Additional filters
 #' @return The parsed content of the response
 #' @examples 
-#' agg_data <- getRequest("https://lapis.cov-spectrum.org/gisaid/v2/sample/aggregated", country='Switzerland')
+#' agg_data <- getRequest("https://lapis.cov-spectrum.org/gisaid/v2/sample/aggregated", args=list(country='Switzerland'))
 #' @export
-getRequest <- function(url, ...) {
-  query<-list("accessKey" = accessKey, ...)
+getRequest <- function(url, args=NULL) {
+  
+  query<-c("accessKey" = accessKey, args)
   response <- httr::GET(url, query=query)
   
   content <- httr::content(response, "text", encoding = "UTF-8")
@@ -70,9 +71,20 @@ runQuery <- function(session, endpoint, args) {
 #' @export
 getAggregated <- function(session, ...) {
   # TODO validate the arguments
-  # TODO convert arguments as needed: e.g., fields must be an array even it has only one element
-
-  return(getRequest(paste0(session$host, "/sample/aggregated"),  ...))
+  args <- list(...)
+  if('fields'%in%names(args)) {
+    fields<-as.list(args[['fields']])
+    names(fields)<-rep('fields', length(fields))
+    args[['fields']] <- NULL
+    args<-c(args, fields)
+  }
+  if('orderBy'%in%names(args)) {
+    fields<-as.list(args[['orderBy']])
+    names(fields)<-rep('orderBy', length(fields))
+    args[['orderBy']] <- NULL
+    args<-c(args, fields)
+  }
+  return(getRequest(paste0(session$host, "/sample/aggregated"), args))
 }
 
 #' Get metadata from LAPIS
@@ -86,13 +98,16 @@ getAggregated <- function(session, ...) {
 #' @examples 
 #' metadata <- getDetails(session, fields=c("country"), limit = 10, country = "Switzerland")
 #' @export
-getDetails <- function(session, fields = NULL, limit = NULL, ...) {
+getDetails <- function(session, fields = NULL, orderBy = NULL, 
+                       limit = NULL, offset = NULL, ...) {
   filters <- parseFilters(...)
   combined <- c(
     filters$metadata,
     filters$mutation,
     fields=list(as.list(fields)),
-    limit=limit
+    orderBy=list(as.list(orderBy)),
+    limit=limit,
+    offset=offset
   )
   return(runQuery(session, "/sample/details", combined))
 }
@@ -109,7 +124,7 @@ getDetails <- function(session, fields = NULL, limit = NULL, ...) {
 getNucleotideMutations <- function(session, ...) {
   args <- list(...)
   # TODO validate the arguments
-  # TODO convert arguments as needed: e.g., fields must be an array even it has only one element
+  args[['orderBy']] = as.list(args[['orderBy']])
 
   return(runQuery(session, "/sample/nucleotideMutations", args))
 }

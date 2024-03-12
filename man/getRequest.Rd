@@ -4,14 +4,12 @@
 \alias{getRequest}
 \title{GET request to LAPIS}
 \usage{
-getRequest(session, endpoint, ...)
+getRequest(url, args = NULL)
 }
 \arguments{
-\item{session}{The current session}
+\item{url}{Request URL}
 
-\item{endpoint}{The endpoint where the request should be made}
-
-\item{...}{Additional filters}
+\item{args}{Additional filters}
 }
 \value{
 The parsed content of the response
@@ -20,5 +18,5 @@ The parsed content of the response
 Makes a GET request to a LAPIS endpoint and parses the response
 }
 \examples{
-agg_data <- getRequest(session, "/sample/aggregated", country='Switzerland')
+agg_data <- getRequest("https://lapis.cov-spectrum.org/gisaid/v2/sample/aggregated", args=list(country='Switzerland'))
 }

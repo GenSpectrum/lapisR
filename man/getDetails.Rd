@@ -4,7 +4,14 @@
 \alias{getDetails}
 \title{Get metadata from LAPIS}
 \usage{
-getDetails(session, fields = NULL, limit = NULL, ...)
+getDetails(
+  session,
+  fields = NULL,
+  orderBy = NULL,
+  limit = NULL,
+  offset = NULL,
+  ...
+)
 }
 \arguments{
 \item{session}{The current session}

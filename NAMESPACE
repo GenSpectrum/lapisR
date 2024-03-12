@@ -2,5 +2,7 @@
 
 export(getAggregated)
 export(getDetails)
+export(getNucleotideMutations)
 export(getRequest)
+export(initialize)
 export(runQuery)
