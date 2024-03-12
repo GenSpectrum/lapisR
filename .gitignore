@@ -1,0 +1,4 @@
+# Editors
+.idea/
+*.iml
+.Rproj.user
