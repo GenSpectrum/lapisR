@@ -4,19 +4,34 @@
 \alias{getAggregated}
 \title{Get aggregated data from LAPIS}
 \usage{
-getAggregated(session, ...)
+getAggregated(
+  session,
+  fields = NULL,
+  orderBy = NULL,
+  limit = NULL,
+  offset = NULL,
+  ...
+)
 }
 \arguments{
 \item{session}{The current session}
 
-\item{...}{Additional filters}
+\item{fields}{The fields to aggregate by. Valid field names can be found in \code{session$metadata$name}. If NULL, only the total count is returned.}
+
+\item{orderBy}{The fields to order by; must be either "count" or included in \code{fields}}
+
+\item{limit}{Maximum number of sequences to include}
+
+\item{offset}{Number of sequences to skip}
+
+\item{...}{Filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".}
 }
 \value{
-The parsed content of the response
+Aggregated data
 }
 \description{
 Makes a request to the /sample/aggregated endpoint of LAPIS and parses the response
 }
 \examples{
-agg_data <- getAggregated(session, country = "Switzerland")
+agg_data <- getAggregated(session, fields = "dateMonth", country = "Switzerland")
 }

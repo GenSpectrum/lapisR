@@ -3,10 +3,17 @@ install_github("GenSpectrum/lapisR@dev")
 library(lapisR)
 library(roxygen2)
 
-session <- initialize("https://lapis.cov-spectrum.org/gisaid/v2", expireOnUpdate = TRUE)
+session <- initialize("https://lapis.cov-spectrum.org/gisaid/v2", expireOnUpdate = TRUE, accessKey= '')
 
 getAggregated(session, country = "Switzerland", dateDay =20)
 getDetails(session, country = "Switzerland", limit = 10, fields="country")
 getNucleotideMutations(session, region = "Europe", minProportion = 0.1, limit=10, orderBy='count')
-
-
+getNucleotideInsertions(session, region = "Europe", limit=10, orderBy='count')
+getAminoAcidMutations(session, region = "Europe", minProportion = 0.1, limit=10)
+getAminoAcidInsertions(session, region = "Europe", limit=10)
+alignment <- getNucleotideAlignment(session, country = "Poland", dateDay=5, dateMonth=5, limit=3)
+write(alignment, "alignment.fasta")
+alignment_aa <- getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay=5, dateMonth=5, limit=3)
+write(alignment_aa, "aa_alignment.fasta")
+seqs <- getNucleotideSequences(session, country = "Poland", dateDay=5, dateMonth=5, limit=3)
+write(seqs, "sequences.fasta")

@@ -4,10 +4,12 @@
 \alias{initialize}
 \title{Initialize LAPIS session}
 \usage{
-initialize(host, expireOnUpdate)
+initialize(host, accessKey = NULL, expireOnUpdate = F)
 }
 \arguments{
 \item{host}{URL of the host}
+
+\item{accessKey}{Access key (optional)}
 
 \item{expireOnUpdate}{If TRUE, the session expires as soon as the database receives an update}
 }
