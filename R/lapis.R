@@ -1,50 +1,71 @@
-sequenceFilters<-c("ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery")
-mutationFilters<-c( "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", "aminoAcidInsertions")
+library(purrr)
 
-getRequest <- function(url, accessKey=NULL, args=NULL) {
-  
-  query<-c("accessKey" = accessKey, args)
-  response <- httr::GET(url, query=query)
-  
+#' Get available sequence filters
+#' @param session The current session
+#' @return Array of available filter keys
+#' @examples
+#' session <- initialize("https://lapis.cov-spectrum.org/gisaid/v2")
+#' filters <- getFilters(session)
+#' @export
+
+getFilters <- function(session) {
+  filters <- list_c(apply(session$metadata, 1, function(x) if (x["type"] %in% c("int", "float")) c(x["name"], paste0(x["name"], c("From", "To"))) else x["name"]))
+  names(filters) <- NULL
+  union(filters, c("nucleotideMutations", "nucleotideInsertions", "aminoAcidMutations", "aminoAcidInsertions"))
+}
+
+getRequest <- function(url, accessKey = NULL, args = NULL) {
+  query <- c("accessKey" = accessKey, args)
+  response <- httr::GET(url, query = query)
+
   content <- httr::content(response, "text", encoding = "UTF-8")
   parsedContent <- jsonlite::fromJSON(content)
 
   if (httr::status_code(response) != 200) {
-    stop(paste0(httr::status_code(response), ' ', parsedContent$error$title, ':\n', parsedContent$error$detail))
+    stop(paste0(httr::status_code(response), " ", parsedContent$error$title, ":\n", parsedContent$error$detail))
   }
 
   return(parsedContent)
 }
 
-runQuery <- function(session, endpoint, args, response_type = "json") {
+runQuery <- function(session, endpoint, args, response_type = "json", compression = NULL, out = NULL) {
   body <- c(args, accessKey = session$accessKey)
   url <- paste0(session$host, endpoint)
-  response <- httr::POST(url, body = body, httr::content_type_json(), encode = "json")
+  if (response_type == "file") {
+    body <- c(body, downloadAsFile = T, compression = compression)
+    response <- httr::POST(url, body = body, httr::content_type_json(), encode = "json", httr::write_disk(out, overwrite = T), httr::progress())
+  } else {
+    response <- httr::POST(url, body = body, httr::content_type_json(), encode = "json")
+  }
+
   content <- httr::content(response, "text", encoding = "UTF-8")
 
   if (httr::status_code(response) != 200) {
     parsedContent <- jsonlite::fromJSON(content)
-    stop(paste0(httr::status_code(response), ' ', parsedContent$error$title, ':\n', parsedContent$error$detail))
+    stop(paste0(httr::status_code(response), " ", parsedContent$error$title, ":\n", parsedContent$error$detail))
   }
-  
-  if (response_type=='json') parsedContent <- jsonlite::fromJSON(content)$data
-  else parsedContent <- content
+
+  if (response_type == "json") content <- jsonlite::fromJSON(content)$data
 
   if (session$expireOnUpdate) {
     previousDataVersion <- session$dataVersion
-    currentDataVersion <- httr::headers(response)[['lapis-data-version']]
+    currentDataVersion <- httr::headers(response)[["lapis-data-version"]]
     if (is.null(previousDataVersion)) {
       session$dataVersion <<- currentDataVersion
     } else if (previousDataVersion != currentDataVersion) {
-      stop(paste0("The session has expired due to an update of data. The data version was changed from ",
-                  previousDataVersion, " to ", currentDataVersion, ". Please create a new session."))
+      stop(paste0(
+        "The session has expired due to an update of data. The data version was changed from ",
+        previousDataVersion, " to ", currentDataVersion, ". Please create a new session."
+      ))
     }
   }
 
-  return(parsedContent)
+  if (response_type != "file") {
+    return(content)
+  }
 }
 
-parseArguments <- function(..., method=c('GET', 'POST')) {
+parseArguments <- function(..., method = c("GET", "POST")) {
   args <- list(...)
   argNames <- names(args)
   if (any(argNames == "")) {
@@ -54,23 +75,21 @@ parseArguments <- function(..., method=c('GET', 'POST')) {
   if (length(duplicatedNames) > 0) {
     stop(paste0("Duplicated arguments: ", paste0(duplicatedNames, collapse = ", ")))
   }
-  
-  if(method=='GET'){
-    for (arg in argNames){
-      if (length(args[[arg]])>1){
-        values<-as.list(args[[arg]])
-        names(values)<-rep(arg, length(values))
+
+  if (method == "GET") {
+    for (arg in argNames) {
+      if (length(args[[arg]]) > 1) {
+        values <- as.list(args[[arg]])
+        names(values) <- rep(arg, length(values))
         args[[arg]] <- NULL
-        args<-c(args, values)
+        args <- c(args, values)
       }
     }
+  } else {
+    if (!is.null(args[["fields"]])) args[["fields"]] <- as.array(args[["fields"]])
+    if (!is.null(args[["orderBy"]])) args[["orderBy"]] <- as.array(args[["orderBy"]])
   }
-  else {
-    if(!is.null(args[['fields']])) args[['fields']]<-as.array(args[['fields']])
-    if(!is.null(args[['orderBy']])) args[['orderBy']]<-as.array(args[['orderBy']])
-    
-  }
-  
+
   return(args)
 }
 
@@ -82,27 +101,29 @@ parseArguments <- function(..., method=c('GET', 'POST')) {
 #' @param orderBy The fields to order by; must be either "count" or included in `fields`
 #' @param limit Maximum number of sequences to include
 #' @param offset Number of sequences to skip
-#' @param ... Filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param ... Filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Aggregated data
-#' @examples 
+#' @examples
 #' agg_data <- getAggregated(session, fields = "dateMonth", country = "Switzerland")
 #' @export
-getAggregated <- function(session, fields=NULL, orderBy=NULL, limit=NULL, offset=NULL, ...) {
-  
-  if(!is.null(fields)&&any(!fields%in%session$metadata$name))
-    stop(paste0("Invalid fields: ", paste0(fields[!fields%in%session$metadata$name] , collapse = ", ")))
-  if(!is.null(orderBy)&&any(!orderBy%in%c('count', fields)))
+getAggregated <- function(session, fields = NULL, orderBy = NULL, limit = NULL, offset = NULL, ...) {
+  if (!is.null(fields) && any(!fields %in% session$metadata$name)) {
+    stop(paste0("Invalid fields: ", paste0(fields[!fields %in% session$metadata$name], collapse = ", ")))
+  }
+  if (!is.null(orderBy) && any(!orderBy %in% c("count", fields))) {
     stop('orderBy values must be either "count" or in fields')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  #params<-  parseArguments(fields=fields, orderBy=orderBy, limit=limit, offset=offset, method='GET')
-  params<-  parseArguments(fields=fields, orderBy=orderBy, limit=limit, offset=offset, method='POST')
-  #filters <- parseArguments(..., method='GET')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  # params<-  parseArguments(fields=fields, orderBy=orderBy, limit=limit, offset=offset, method='GET')
+  params <- parseArguments(fields = fields, orderBy = orderBy, limit = limit, offset = offset, method = "POST")
+  # filters <- parseArguments(..., method='GET')
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
 
-  #return(getRequest(paste0(session$host, "/sample/aggregated"), accessKey = session$accessKey, c(params, filters))$data)
+  # return(getRequest(paste0(session$host, "/sample/aggregated"), accessKey = session$accessKey, c(params, filters))$data)
   return(runQuery(session, "/sample/aggregated", c(params, filters)))
 }
 
@@ -114,25 +135,27 @@ getAggregated <- function(session, fields=NULL, orderBy=NULL, limit=NULL, offset
 #' @param orderBy The fields to order by; must be present in `fields`
 #' @param limit Maximum number of sequences to include
 #' @param offset Number of sequences to skip
-#' @param ... Filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param ... Filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Sequence metadata
-#' @examples 
-#' metadata <- getDetails(session, fields=c("host", "age"), limit = 10, country = "Switzerland")
+#' @examples
+#' metadata <- getDetails(session, fields = c("host", "age"), limit = 10, country = "Switzerland")
 #' @export
-getDetails <- function(session, fields=NULL, orderBy=NULL, limit=NULL, offset=NULL, ...) {
-  
-  if(!is.null(fields)&&any(!fields%in%session$metadata$name))
-    stop(paste0("Invalid fields: ", paste0(fields[!fields%in%session$metadata$name] , collapse = ", ")))
-  if(!is.null(orderBy)&&any(!orderBy%in% fields))
-    stop('orderBy values must be present in fields')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  params<-  parseArguments(fields=fields, orderBy=orderBy, limit=limit, offset=offset, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-  
-  
+getDetails <- function(session, fields = NULL, orderBy = NULL, limit = NULL, offset = NULL, ...) {
+  if (!is.null(fields) && any(!fields %in% session$metadata$name)) {
+    stop(paste0("Invalid fields: ", paste0(fields[!fields %in% session$metadata$name], collapse = ", ")))
+  }
+  if (!is.null(orderBy) && any(!orderBy %in% fields)) {
+    stop("orderBy values must be present in fields")
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  params <- parseArguments(fields = fields, orderBy = orderBy, limit = limit, offset = offset, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+
+
   return(runQuery(session, "/sample/details", c(params, filters)))
 }
 
@@ -144,23 +167,25 @@ getDetails <- function(session, fields=NULL, orderBy=NULL, limit=NULL, offset=NU
 #' @param limit Maximum number of mutations to include
 #' @param offset Number of mutations to skip
 #' @param minProportion Minimal proportion required to include a mutation in the response
-#' @param ... Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Nucleotide mutations together with their counts and proportions among the sequences passing the filters
-#' @examples 
-#' mutations <- getNucleotideMutations(session, region = "Europe", minProportion = 0.1, limit=10)
+#' @examples
+#' mutations <- getNucleotideMutations(session, region = "Europe", minProportion = 0.1, limit = 10)
 #' @export
-getNucleotideMutations <- function(session, orderBy=NULL, limit=NULL, offset=NULL, minProportion=0.05, ...) {
-  if(!is.null(orderBy)&&any(!orderBy%in% c("mutation", "count", "proportion", "random")))
+getNucleotideMutations <- function(session, orderBy = NULL, limit = NULL, offset = NULL, minProportion = 0.05, ...) {
+  if (!is.null(orderBy) && any(!orderBy %in% c("mutation", "count", "proportion", "random"))) {
     stop('orderBy values must be in `c("mutation", "count", "proportion", "random")`')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  if(!(is.numeric(minProportion) && minProportion>=0 && minProportion<=1)) stop('minProportion must be a number between 0 and 1')
-  params<-  parseArguments(orderBy=orderBy, limit=limit, offset=offset, minProportion=minProportion, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-  
-  
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  if (!(is.numeric(minProportion) && minProportion >= 0 && minProportion <= 1)) stop("minProportion must be a number between 0 and 1")
+  params <- parseArguments(orderBy = orderBy, limit = limit, offset = offset, minProportion = minProportion, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+
+
   return(runQuery(session, "/sample/nucleotideMutations", c(params, filters)))
 }
 
@@ -171,22 +196,24 @@ getNucleotideMutations <- function(session, orderBy=NULL, limit=NULL, offset=NUL
 #' @param orderBy The fields to order by. Available values: "insertion", "count", "random"
 #' @param limit Maximum number of insertions to include
 #' @param offset Number of insertions to skip
-#' @param ... Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Nucleotide insertions together with their counts among the sequences passing the filters
-#' @examples 
-#' insertions <- getNucleotideInsertions(session, region = "Europe", limit=10)
+#' @examples
+#' insertions <- getNucleotideInsertions(session, region = "Europe", limit = 10)
 #' @export
-getNucleotideInsertions <- function(session, orderBy=NULL, limit=NULL, offset=NULL, ...) {
-  if(!is.null(orderBy)&&any(!orderBy%in% c("insertion", "count", "random")))
+getNucleotideInsertions <- function(session, orderBy = NULL, limit = NULL, offset = NULL, ...) {
+  if (!is.null(orderBy) && any(!orderBy %in% c("insertion", "count", "random"))) {
     stop('orderBy values must be in `c("insertion", "count", "random")`')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  params<-  parseArguments(orderBy=orderBy, limit=limit, offset=offset, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-  
-  
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  params <- parseArguments(orderBy = orderBy, limit = limit, offset = offset, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+
+
   return(runQuery(session, "/sample/nucleotideInsertions", c(params, filters)))
 }
 
@@ -198,23 +225,25 @@ getNucleotideInsertions <- function(session, orderBy=NULL, limit=NULL, offset=NU
 #' @param limit Maximum number of mutations to include
 #' @param offset Number of mutations to skip
 #' @param minProportion Minimal proportion required to include a mutation in the response
-#' @param ... Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Amino acid mutations together with their counts and proportions among the sequences passing the filters
-#' @examples 
-#' mutations <- getAminoAcidMutations(session, region = "Europe", minProportion = 0.1, limit=10)
+#' @examples
+#' mutations <- getAminoAcidMutations(session, region = "Europe", minProportion = 0.1, limit = 10)
 #' @export
-getAminoAcidMutations <- function(session, orderBy=NULL, limit=NULL, offset=NULL, minProportion=0.05, ...) {
-  if(!is.null(orderBy)&&any(!orderBy%in% c("mutation", "count", "proportion", "random")))
+getAminoAcidMutations <- function(session, orderBy = NULL, limit = NULL, offset = NULL, minProportion = 0.05, ...) {
+  if (!is.null(orderBy) && any(!orderBy %in% c("mutation", "count", "proportion", "random"))) {
     stop('orderBy values must be in `c("mutation", "count", "proportion", "random")`')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  if(!(is.numeric(minProportion) && minProportion>=0 && minProportion<=1)) stop('minProportion must be a number between 0 and 1')
-  params<-  parseArguments(orderBy=orderBy, limit=limit, offset=offset, minProportion=minProportion, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-  
-  
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  if (!(is.numeric(minProportion) && minProportion >= 0 && minProportion <= 1)) stop("minProportion must be a number between 0 and 1")
+  params <- parseArguments(orderBy = orderBy, limit = limit, offset = offset, minProportion = minProportion, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+
+
   return(runQuery(session, "/sample/aminoAcidMutations", c(params, filters)))
 }
 
@@ -225,22 +254,24 @@ getAminoAcidMutations <- function(session, orderBy=NULL, limit=NULL, offset=NULL
 #' @param orderBy The fields to order by. Available values: "insertion", "count", "random"
 #' @param limit Maximum number of insertions to include
 #' @param offset Number of insertions to skip
-#' @param ... Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Amino acid insertions together with their counts among the sequences passing the filters
-#' @examples 
-#' insertions <- getAminoAcidInsertions(session, region = "Europe", limit=10)
+#' @examples
+#' insertions <- getAminoAcidInsertions(session, region = "Europe", limit = 10)
 #' @export
-getAminoAcidInsertions <- function(session, orderBy=NULL, limit=NULL, offset=NULL, ...) {
-  if(!is.null(orderBy)&&any(!orderBy%in% c("insertion", "count", "random")))
+getAminoAcidInsertions <- function(session, orderBy = NULL, limit = NULL, offset = NULL, ...) {
+  if (!is.null(orderBy) && any(!orderBy %in% c("insertion", "count", "random"))) {
     stop('orderBy values must be in `c("insertion", "count", "random")`')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  params<-  parseArguments(orderBy=orderBy, limit=limit, offset=offset, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-  
-  
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  params <- parseArguments(orderBy = orderBy, limit = limit, offset = offset, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+
+
   return(runQuery(session, "/sample/aminoAcidInsertions", c(params, filters)))
 }
 
@@ -252,25 +283,43 @@ getAminoAcidInsertions <- function(session, orderBy=NULL, limit=NULL, offset=NUL
 #' @param orderBy The fields by which the sequences should be ordered. Available values: "gisaidEpiIsl", "random" and any gene in `session$genes`
 #' @param limit Maximum number of sequences to align
 #' @param offset Number of sequences to skip
-#' @param ... Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param downloadAsFile If the alignment should be written to file. If FALSE, the aligment is returned as string
+#' @param compression Compression type. Available compression types: "gzip" and "zstd". Ignored if `downloadAsFile == FALSE`. If NULL, no compression
+#' @param out Name of the output file (without file extension)
+#' @param ... Sequence filters.Valid filter keys can be found with `getFilters(session)`
 #' @return Amino acid sequence alignment in FASTA format
-#' @examples 
-#' alignment <- getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay=5, dateMonth=5, limit=3)
-#' write(alignment, "aa_alignment.fasta")
+#' @examples
+#' getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "aa_alignment")
 #' @export
-getAminoAcidAlignment <- function(session, gene, orderBy=NULL, limit=NULL, offset=NULL, ...) {
-  if(!(gene %in% session$genes))
-    stop('Unsupported gene name')
-  if(!is.null(orderBy)&&any(!orderBy%in% c("gisaidEpiIsl", "random", session$genes)))
+getAminoAcidAlignment <- function(session, gene, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = T, compression = NULL, out = "aa_alignment", ...) {
+  if (!(gene %in% session$genes)) {
+    stop("Unsupported gene name")
+  }
+  if (!is.null(orderBy) && any(!orderBy %in% c("gisaidEpiIsl", "random", session$genes))) {
     stop('orderBy values can be "gisaidEpiIsl", "random", or any gene in `session$genes`')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  params<-  parseArguments(orderBy=orderBy, limit=limit, offset=offset, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-
-  return(runQuery(session, paste0("/sample/alignedAminoAcidSequences/", gene), c(params, filters), response_type = 'string'))
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  if (!is.null(compression) && !(compression %in% c("zstd", "gzip"))) stop("Unsupported compression type")
+  params <- parseArguments(orderBy = orderBy, limit = limit, offset = offset, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+  if (downloadAsFile) {
+    if (!is.null(compression)) {
+      if (compression == "zstd") {
+        suffix <- ".zst"
+      } else {
+        suffix <- ".gz"
+      }
+    } else {
+      suffix <- ""
+    }
+    return(runQuery(session, paste0("/sample/alignedAminoAcidSequences/", gene), c(params, filters), response_type = "file", compression = compression, out = paste0(out, ".fasta", suffix)))
+  } else {
+    return(runQuery(session, paste0("/sample/alignedAminoAcidSequences/", gene), c(params, filters), response_type = "string"))
+  }
 }
 
 #' Get nucleotide sequence alignment from LAPIS
@@ -280,23 +329,41 @@ getAminoAcidAlignment <- function(session, gene, orderBy=NULL, limit=NULL, offse
 #' @param orderBy The fields by which the sequences should be ordered. Available values: "main", "gisaidEpiIsl", "random"
 #' @param limit Maximum number of sequences to align
 #' @param offset Number of sequences to skip
-#' @param ... Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param downloadAsFile If the alignment should be written to file. If FALSE, the aligment is returned as string
+#' @param compression Compression type. Available compression types: "gzip" and "zstd". Ignored if `downloadAsFile == FALSE`. If NULL, no compression
+#' @param out Name of the output file (without file extension)
+#' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Nucleotide sequence alignment in FASTA format
-#' @examples 
-#' alignment <- getNucleotideAlignment(session, country = "Poland", dateDay=5, dateMonth=5, limit=3)
-#' write(alignment, "nuc_alignment.fasta")
+#' @examples
+#' getNucleotideAlignment(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "nuc_alignment")
 #' @export
-getNucleotideAlignment <- function(session, orderBy=NULL, limit=NULL, offset=NULL, ...) {
-  if(!is.null(orderBy)&&any(!orderBy%in% c("main", "gisaidEpiIsl", "random")))
+getNucleotideAlignment <- function(session, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = T, compression = NULL, out = "nuc_alignment", ...) {
+  if (!is.null(orderBy) && any(!orderBy %in% c("main", "gisaidEpiIsl", "random"))) {
     stop('orderBy values must be in `c("main", "gisaidEpiIsl", "random")`')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  params<-  parseArguments(orderBy=orderBy, limit=limit, offset=offset, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-  
-  return(runQuery(session, "/sample/unalignedNucleotideSequences", c(params, filters), response_type = 'string'))
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  if (!is.null(compression) && !(compression %in% c("zstd", "gzip"))) stop("Unsupported compression type")
+  params <- parseArguments(orderBy = orderBy, limit = limit, offset = offset, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+
+  if (downloadAsFile) {
+    if (!is.null(compression)) {
+      if (compression == "zstd") {
+        suffix <- ".zst"
+      } else {
+        suffix <- ".gz"
+      }
+    } else {
+      suffix <- ""
+    }
+    return(runQuery(session, "/sample/alignedNucleotideSequences", c(params, filters), response_type = "file", compression = compression, out = paste0(out, ".fasta", suffix)))
+  } else {
+    return(runQuery(session, "/sample/alignedNucleotideSequences", c(params, filters), response_type = "string"))
+  }
 }
 
 #' Get nucleotide sequences from LAPIS
@@ -306,23 +373,41 @@ getNucleotideAlignment <- function(session, orderBy=NULL, limit=NULL, offset=NUL
 #' @param orderBy The fields by which the sequences should be ordered. Available values: "main", "gisaidEpiIsl", "random"
 #' @param limit Maximum number of sequences to include
 #' @param offset Number of sequences to skip
-#' @param ... Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".
+#' @param downloadAsFile If the sequences should be written to file. If FALSE, the sequences are returned as string
+#' @param compression Compression type. Available compression types: "gzip" and "zstd". Ignored if `downloadAsFile == FALSE`. If NULL, no compression
+#' @param out Name of the output file (without file extension)
+#' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
 #' @return Nucleotide sequences in FASTA format
-#' @examples 
-#' seqs <- getNucleotideSequences(session, country = "Poland", dateDay=5, dateMonth=5, limit=3)
-#' write(seqs, "sequences.fasta")
+#' @examples
+#' getNucleotideSequences(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "lapis_sequences")
 #' @export
-getNucleotideSequences <- function(session, orderBy=NULL, limit=NULL, offset=NULL, ...) {
-  if(!is.null(orderBy)&&any(!orderBy%in% c("main", "gisaidEpiIsl", "random")))
+getNucleotideSequences <- function(session, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = T, compression = NULL, out = "sequences", ...) {
+  if (!is.null(orderBy) && any(!orderBy %in% c("main", "gisaidEpiIsl", "random"))) {
     stop('orderBy values must be in `c("main", "gisaidEpiIsl", "random")`')
-  if(!is.null(limit)&&!(is.numeric(limit) && round(limit)==limit)) stop('Limit must be integer')
-  if(!is.null(offset)&&!(is.numeric(offset) && round(offset)==offset)) stop('Offset must be integer')
-  params<-  parseArguments(orderBy=orderBy, limit=limit, offset=offset, method='POST')
-  filters <- parseArguments(..., method='POST')
-  if(any(!names(filters)%in%union(sequenceFilters, mutationFilters)))
-    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters)%in%union(sequenceFilters, mutationFilters)] , collapse = ", ")))
-  
-  return(runQuery(session, "/sample/unalignedNucleotideSequences", c(params, filters), response_type = 'string'))
+  }
+  if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
+  if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
+  if (!is.null(compression) && !(compression %in% c("zstd", "gzip"))) stop("Unsupported compression type")
+  params <- parseArguments(orderBy = orderBy, limit = limit, offset = offset, method = "POST")
+  filters <- parseArguments(..., method = "POST")
+  if (any(!names(filters) %in% getFilters(session))) {
+    stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
+  }
+
+  if (downloadAsFile) {
+    if (!is.null(compression)) {
+      if (compression == "zstd") {
+        suffix <- ".zst"
+      } else {
+        suffix <- ".gz"
+      }
+    } else {
+      suffix <- ""
+    }
+    runQuery(session, "/sample/unalignedNucleotideSequences", c(params, filters), response_type = "file", compression = compression, out = paste0(out, ".fasta", suffix))
+  } else {
+    return(runQuery(session, "/sample/unalignedNucleotideSequences", c(params, filters), response_type = "string"))
+  }
 }
 
 #' Initialize LAPIS session
@@ -332,10 +417,10 @@ getNucleotideSequences <- function(session, orderBy=NULL, limit=NULL, offset=NUL
 #' @param accessKey Access key (optional)
 #' @param expireOnUpdate If TRUE, the session expires as soon as the database receives an update
 #' @return A LAPIS session
-#' @examples 
+#' @examples
 #' session <- initialize("https://lapis.cov-spectrum.org/gisaid/v2", expireOnUpdate = TRUE)
 #' @export
-initialize <- function(host, accessKey=NULL, expireOnUpdate=F) {
+initialize <- function(host, accessKey = NULL, expireOnUpdate = F) {
   databaseConfig <- getRequest(paste0(host, "/sample/databaseConfig"))
   referenceGenomeConfig <- getRequest(paste0(host, "/sample/referenceGenome"))
   session <- list(
@@ -351,4 +436,3 @@ initialize <- function(host, accessKey=NULL, expireOnUpdate=F) {
   )
   return(session)
 }
-

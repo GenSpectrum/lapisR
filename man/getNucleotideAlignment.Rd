@@ -9,6 +9,9 @@ getNucleotideAlignment(
   orderBy = NULL,
   limit = NULL,
   offset = NULL,
+  downloadAsFile = T,
+  compression = NULL,
+  out = "nuc_alignment",
   ...
 )
 }
@@ -21,7 +24,13 @@ getNucleotideAlignment(
 
 \item{offset}{Number of sequences to skip}
 
-\item{...}{Sequence filters. Valid filter keys are: "ace2Binding", "ace2BindingFrom", "ace2BindingTo", "age", "ageFrom", "ageTo", "authors", "country", "countryExposure", "date", "dateFrom", "dateTo", "dateDay", "dateDayFrom", "dateDayTo", "dateMonth", "dateMonthFrom", "dateMonthTo", "dateOriginalValue", "dateSubmitted", "dateSubmittedFrom", "dateSubmittedTo", "dateSubmittedDay", "dateSubmittedDayFrom", "dateSubmittedDayTo", "dateSubmittedMonth", "dateSubmittedMonthFrom", "dateSubmittedMonthTo", "dateSubmittedOriginalValue", "dateSubmittedYear", "dateSubmittedYearFrom", "dateSubmittedYearTo", "dateUpdated", "dateUpdatedFrom", "dateUpdatedTo", "dateUpdatedDay", "dateUpdatedDayFrom", "dateUpdatedDayTo", "dateUpdatedMonth", "dateUpdatedMonthFrom", "dateUpdatedMonthTo", "dateUpdatedOriginalValue", "dateUpdatedYear", "dateUpdatedYearFrom", "dateUpdatedYearTo", "dateYear", "dateYearFrom", "dateYearTo", "died", "division", "divisionExposure", "fullyVaccinated", "genbankAccession", "gisaidClade", "gisaidEpiIsl", "hospitalized", "host", "immuneEscape", "immuneEscapeFrom", "immuneEscapeTo", "location", "nextcladeCoverage", "nextcladeCoverageFrom", "nextcladeCoverageTo", "nextcladeDatasetVersion", "nextcladePangoLineage", "nextcladeQcFrameShiftsScore", "nextcladeQcFrameShiftsScoreFrom", "nextcladeQcFrameShiftsScoreTo", "nextcladeQcMissingDataScore", "nextcladeQcMissingDataScoreFrom", "nextcladeQcMissingDataScoreTo", "nextcladeQcMixedSites", "nextcladeQcMixedSitesFrom", "nextcladeQcMixedSitesTo", "nextcladeQcMixedSitesScore", "nextcladeQcMixedSitesScoreFrom", "nextcladeQcMixedSitesScoreTo", "nextcladeQcOverallScore", "nextcladeQcOverallScoreFrom", "nextcladeQcOverallScoreTo", "nextcladeQcPrivateMutationsScore", "nextcladeQcPrivateMutationsScoreFrom", "nextcladeQcPrivateMutationsScoreTo", "nextcladeQcSnpClustersScore", "nextcladeQcSnpClustersScoreFrom", "nextcladeQcSnpClustersScoreTo", "nextcladeQcStopCodonsScore", "nextcladeQcStopCodonsScoreFrom", "nextcladeQcStopCodonsScoreTo", "nextstrainClade", "originatingLab", "pangoLineage", "region", "regionExposure", "samplingStrategy", "sex", "sraAccession", "strain", "submittingLab", "whoClade", "variantQuery", "nucleotideMutations", "aminoAcidMutations", "nucleotideInsertions", and "aminoAcidInsertions".}
+\item{downloadAsFile}{If the alignment should be written to file. If FALSE, the aligment is returned as string}
+
+\item{compression}{Compression type. Available compression types: "gzip" and "zstd". Ignored if \code{downloadAsFile == FALSE}. If NULL, no compression}
+
+\item{out}{Name of the output file (without file extension)}
+
+\item{...}{Sequence filters. Valid filter keys can be found with \code{getFilters(session)}}
 }
 \value{
 Nucleotide sequence alignment in FASTA format
@@ -30,6 +39,5 @@ Nucleotide sequence alignment in FASTA format
 Makes a request to the /sample/alignedNucleotideSequences endpoint of LAPIS and parses the response
 }
 \examples{
-alignment <- getNucleotideAlignment(session, country = "Poland", dateDay=5, dateMonth=5, limit=3)
-write(alignment, "nuc_alignment.fasta")
+getNucleotideAlignment(session, country = "Poland", dateDay=5, dateMonth=5, limit=3, out = 'nuc_alignment')
 }
