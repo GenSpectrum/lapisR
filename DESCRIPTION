@@ -4,7 +4,7 @@ Version: 1.0
 Authors@R: 
     c(person("Chaoran", "Chen", role = c("aut", "cre")),
     person("Mara", "Neacsu", role = c("aut", "cre")),
-    person("ETH Zurich", role = c("cph", "fnd"))))
+    person("ETH Zurich", role = c("cph", "fnd")))
 Description: Retrieve data from various LAPIS endpoints. Request database statistics, sets of sequences and their metadata, sets of mutations or insertions, and sequence alignments.
 URL: https://github.com/GenSpectrum/lapisR/
 BugReports: https://github.com/GenSpectrum/lapisR/issues
