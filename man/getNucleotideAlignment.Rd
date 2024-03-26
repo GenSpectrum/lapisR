@@ -39,5 +39,5 @@ Nucleotide sequence alignment in FASTA format
 Makes a request to the /sample/alignedNucleotideSequences endpoint of LAPIS and parses the response
 }
 \examples{
-getNucleotideAlignment(session, country = "Poland", dateDay=5, dateMonth=5, limit=3, out = 'nuc_alignment')
+getNucleotideAlignment(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "nuc_alignment")
 }

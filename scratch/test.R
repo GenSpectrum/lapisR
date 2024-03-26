@@ -3,15 +3,11 @@ install_github("GenSpectrum/lapisR")
 
 library(lapisR)
 library(roxygen2)
-library(lintr)
 library(styler)
 
 roxygenise()
 
-lintr::use_lintr(type = "tidyverse")
-lintr::lint_dir()
-
-style_dir()
+style_dir(exclude_dirs = c("tests/testthat/endpoints"))
 
 session <- lapisR::initialize("https://lapis.cov-spectrum.org/gisaid/v2", expireOnUpdate = TRUE, accessKey = "")
 

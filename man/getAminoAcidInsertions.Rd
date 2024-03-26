@@ -30,5 +30,5 @@ Amino acid insertions together with their counts among the sequences passing the
 Makes a request to the /sample/aminoAcidInsertions endpoint of LAPIS and parses the response
 }
 \examples{
-insertions <- getAminoAcidInsertions(session, region = "Europe", limit=10)
+insertions <- getAminoAcidInsertions(session, region = "Europe", limit = 10)
 }

@@ -9,7 +9,7 @@ library(purrr)
 #' @export
 
 getFilters <- function(session) {
-  filters <- list_c(apply(session$metadata, 1, function(x) if (x["type"] %in% c("int", "float")) c(x["name"], paste0(x["name"], c("From", "To"))) else x["name"]))
+  filters <- list_c(apply(session$metadata, 1, function(x) if (x["type"] %in% c("int", "float", "date")) c(x["name"], paste0(x["name"], c("From", "To"))) else x["name"]))
   names(filters) <- NULL
   union(filters, c("nucleotideMutations", "nucleotideInsertions", "aminoAcidMutations", "aminoAcidInsertions"))
 }
@@ -88,6 +88,9 @@ parseArguments <- function(..., method = c("GET", "POST")) {
   } else {
     if (!is.null(args[["fields"]])) args[["fields"]] <- as.array(args[["fields"]])
     if (!is.null(args[["orderBy"]])) args[["orderBy"]] <- as.array(args[["orderBy"]])
+    for (f in c("nucleotideMutations", "nucleotideInsertions", "aminoAcidMutations", "aminoAcidInsertions")) {
+      if (!is.null(args[[f]])) args[[f]] <- as.list(args[[f]])
+    }
   }
 
   return(args)
@@ -280,7 +283,7 @@ getAminoAcidInsertions <- function(session, orderBy = NULL, limit = NULL, offset
 #' Makes a request to the /sample/alignedAminoAcidSequences/{gene} endpoint of LAPIS and parses the response
 #' @param session The current session
 #' @param gene The gene of interest. Valid values can be found in `session$genes`
-#' @param orderBy The fields by which the sequences should be ordered. Available values: "gisaidEpiIsl", "random" and any gene in `session$genes`
+#' @param orderBy The fields by which the sequences should be ordered. Available values: "gisaidEpiIsl", "random" and the `gene`
 #' @param limit Maximum number of sequences to align
 #' @param offset Number of sequences to skip
 #' @param downloadAsFile If the alignment should be written to file. If FALSE, the aligment is returned as string
@@ -295,8 +298,8 @@ getAminoAcidAlignment <- function(session, gene, orderBy = NULL, limit = NULL, o
   if (!(gene %in% session$genes)) {
     stop("Unsupported gene name")
   }
-  if (!is.null(orderBy) && any(!orderBy %in% c("gisaidEpiIsl", "random", session$genes))) {
-    stop('orderBy values can be "gisaidEpiIsl", "random", or any gene in `session$genes`')
+  if (!is.null(orderBy) && any(!orderBy %in% c("gisaidEpiIsl", "random", gene))) {
+    stop(paste0('orderBy values can be "gisaidEpiIsl", "random", or ', gene))
   }
   if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
   if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")

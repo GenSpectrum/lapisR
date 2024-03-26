@@ -33,5 +33,5 @@ Sequence metadata
 Makes a request to the /sample/details endpoint of LAPIS and parses the response
 }
 \examples{
-metadata <- getDetails(session, fields=c("host", "age"), limit = 10, country = "Switzerland")
+metadata <- getDetails(session, fields = c("host", "age"), limit = 10, country = "Switzerland")
 }

@@ -33,5 +33,5 @@ Nucleotide mutations together with their counts and proportions among the sequen
 Makes a request to the /sample/nucleotideMutations endpoint of LAPIS and parses the response
 }
 \examples{
-mutations <- getNucleotideMutations(session, region = "Europe", minProportion = 0.1, limit=10)
+mutations <- getNucleotideMutations(session, region = "Europe", minProportion = 0.1, limit = 10)
 }
