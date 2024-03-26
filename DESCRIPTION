@@ -1,12 +1,15 @@
 Package: lapisR
-Title: Retrieving data from LAPIS
+Title: Retrieving Data from LAPIS
 Version: 1.0
 Authors@R: 
-    person("Chaoran", "Chen")
-    person("Mara", "Neacsu")
-Description: lapisR provides functions for retrieving data from various LAPIS endpoints. These include functions requesting database statistics, sets of sequences and their metadata, sets of mutations or insertions, and sequence alignments.
+    c(person("Chaoran", "Chen", role = c("aut", "cre")),
+    person("Mara", "Neacsu", role = c("aut", "cre")),
+    person("ETH Zurich", role = c("cph", "fnd"))))
+Description: Retrieve data from various LAPIS endpoints. Request database statistics, sets of sequences and their metadata, sets of mutations or insertions, and sequence alignments.
 URL: https://github.com/GenSpectrum/lapisR/
 BugReports: https://github.com/GenSpectrum/lapisR/issues
+License: use_mit_license()
+Imports: jsonlite, httr, purrr
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1

@@ -1,15 +1,14 @@
-library(purrr)
-
 #' Get available sequence filters
+#' 
+#' Retrieves all filters available for a given session
 #' @param session The current session
 #' @return Array of available filter keys
 #' @examples
 #' session <- initialize("https://lapis.cov-spectrum.org/gisaid/v2")
 #' filters <- getFilters(session)
 #' @export
-
 getFilters <- function(session) {
-  filters <- list_c(apply(session$metadata, 1, function(x) if (x["type"] %in% c("int", "float", "date")) c(x["name"], paste0(x["name"], c("From", "To"))) else x["name"]))
+  filters <- purrr::list_c(apply(session$metadata, 1, function(x) if (x["type"] %in% c("int", "float", "date")) c(x["name"], paste0(x["name"], c("From", "To"))) else x["name"]))
   names(filters) <- NULL
   union(filters, c("nucleotideMutations", "nucleotideInsertions", "aminoAcidMutations", "aminoAcidInsertions"))
 }

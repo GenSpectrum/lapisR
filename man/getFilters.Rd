@@ -13,7 +13,7 @@ getFilters(session)
 Array of available filter keys
 }
 \description{
-Get available sequence filters
+Retrieves all filters available for a given session
 }
 \examples{
 session <- initialize("https://lapis.cov-spectrum.org/gisaid/v2")
