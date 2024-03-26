@@ -39,5 +39,5 @@ Nucleotide sequences in FASTA format
 Makes a request to the /sample/unalignedNucleotideSequences endpoint of LAPIS and parses the response
 }
 \examples{
-getNucleotideSequences(session, country = "Poland", dateDay=5, dateMonth=5, limit=3, out = 'lapis_sequences')
+getNucleotideSequences(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "lapis_sequences")
 }

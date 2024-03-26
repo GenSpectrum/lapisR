@@ -30,5 +30,5 @@ Nucleotide insertions together with their counts among the sequences passing the
 Makes a request to the /sample/nucleotideInsertions endpoint of LAPIS and parses the response
 }
 \examples{
-insertions <- getNucleotideInsertions(session, region = "Europe", limit=10)
+insertions <- getNucleotideInsertions(session, region = "Europe", limit = 10)
 }

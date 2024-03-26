@@ -33,5 +33,5 @@ Amino acid mutations together with their counts and proportions among the sequen
 Makes a request to the /sample/aminoAcidMutations endpoint of LAPIS and parses the response
 }
 \examples{
-mutations <- getAminoAcidMutations(session, region = "Europe", minProportion = 0.1, limit=10)
+mutations <- getAminoAcidMutations(session, region = "Europe", minProportion = 0.1, limit = 10)
 }

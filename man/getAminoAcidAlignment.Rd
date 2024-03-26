@@ -21,7 +21,7 @@ getAminoAcidAlignment(
 
 \item{gene}{The gene of interest. Valid values can be found in \code{session$genes}}
 
-\item{orderBy}{The fields by which the sequences should be ordered. Available values: "gisaidEpiIsl", "random" and any gene in \code{session$genes}}
+\item{orderBy}{The fields by which the sequences should be ordered. Available values: "gisaidEpiIsl", "random" and the \code{gene}}
 
 \item{limit}{Maximum number of sequences to align}
 
@@ -42,5 +42,5 @@ Amino acid sequence alignment in FASTA format
 Makes a request to the /sample/alignedAminoAcidSequences/{gene} endpoint of LAPIS and parses the response
 }
 \examples{
-getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay=5, dateMonth=5, limit=3, out='aa_alignment')
+getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "aa_alignment")
 }
