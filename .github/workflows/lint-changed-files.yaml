@@ -1,5 +1,3 @@
-# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
-# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
     branches:
@@ -8,7 +6,7 @@ on:
 name: lintr
 
 jobs:
-  lint-changed-files:
+  lint-package:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -20,10 +18,7 @@ jobs:
           cat('\noptions(lintr.linter_file = ".lintr")\n', file = "~/.Rprofile", append = TRUE)
         shell: Rscript {0}
 
-      - name: Install package
-        run: R CMD INSTALL .
-
-      - name: Extract and lint files changed by this PR
+      - name: Lint
         run:
           lintr::lint_package()
         shell: Rscript {0}
