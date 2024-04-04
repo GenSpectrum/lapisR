@@ -2,3 +2,4 @@
 ^\.Rproj\.user$
 scratch*
 ^cran-comments\.md$
+^\.github$

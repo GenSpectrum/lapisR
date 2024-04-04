@@ -21,9 +21,9 @@ getNucleotideAlignment(session, country = "Poland", dateDay = 5, dateMonth = 5, 
 getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay = 5, dateMonth = 5, limit = 3)
 getNucleotideSequences(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3)
 
-alignment <- getNucleotideAlignment(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, downloadAsFile = F)
+alignment <- getNucleotideAlignment(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, downloadAsFile = FALSE)
 write(alignment, "alignment.fasta")
-alignment_aa <- getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, downloadAsFile = F)
+alignment_aa <- getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, downloadAsFile = FALSE)
 write(alignment_aa, "aa_alignment.fasta")
-seqs <- getNucleotideSequences(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, downloadAsFile = F)
+seqs <- getNucleotideSequences(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, downloadAsFile = FALSE)
 write(seqs, "sequences.fasta")

@@ -1,5 +1,5 @@
 #' Get available sequence filters
-#' 
+#'
 #' Retrieves all filters available for a given session
 #' @param session The current session
 #' @return Array of available filter keys
@@ -31,8 +31,8 @@ runQuery <- function(session, endpoint, args, response_type = "json", compressio
   body <- c(args, accessKey = session$accessKey)
   url <- paste0(session$host, endpoint)
   if (response_type == "file") {
-    body <- c(body, downloadAsFile = T, compression = compression)
-    response <- httr::POST(url, body = body, httr::content_type_json(), encode = "json", httr::write_disk(out, overwrite = T), httr::progress())
+    body <- c(body, downloadAsFile = TRUE, compression = compression)
+    response <- httr::POST(url, body = body, httr::content_type_json(), encode = "json", httr::write_disk(out, overwrite = TRUE), httr::progress())
   } else {
     response <- httr::POST(url, body = body, httr::content_type_json(), encode = "json")
   }
@@ -117,15 +117,12 @@ getAggregated <- function(session, fields = NULL, orderBy = NULL, limit = NULL, 
   }
   if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
   if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
-  # params<-  parseArguments(fields=fields, orderBy=orderBy, limit=limit, offset=offset, method='GET')
   params <- parseArguments(fields = fields, orderBy = orderBy, limit = limit, offset = offset, method = "POST")
-  # filters <- parseArguments(..., method='GET')
   filters <- parseArguments(..., method = "POST")
   if (any(!names(filters) %in% getFilters(session))) {
     stop(paste0("Unknown arguments: ", paste0(names(filters)[!names(filters) %in% getFilters(session)], collapse = ", ")))
   }
 
-  # return(getRequest(paste0(session$host, "/sample/aggregated"), accessKey = session$accessKey, c(params, filters))$data)
   return(runQuery(session, "/sample/aggregated", c(params, filters)))
 }
 
@@ -293,7 +290,7 @@ getAminoAcidInsertions <- function(session, orderBy = NULL, limit = NULL, offset
 #' @examples
 #' getAminoAcidAlignment(session, "ORF1a", country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "aa_alignment")
 #' @export
-getAminoAcidAlignment <- function(session, gene, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = T, compression = NULL, out = "aa_alignment", ...) {
+getAminoAcidAlignment <- function(session, gene, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = TRUE, compression = NULL, out = "aa_alignment", ...) {
   if (!(gene %in% session$genes)) {
     stop("Unsupported gene name")
   }
@@ -339,7 +336,7 @@ getAminoAcidAlignment <- function(session, gene, orderBy = NULL, limit = NULL, o
 #' @examples
 #' getNucleotideAlignment(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "nuc_alignment")
 #' @export
-getNucleotideAlignment <- function(session, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = T, compression = NULL, out = "nuc_alignment", ...) {
+getNucleotideAlignment <- function(session, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = TRUE, compression = NULL, out = "nuc_alignment", ...) {
   if (!is.null(orderBy) && any(!orderBy %in% c("main", "gisaidEpiIsl", "random"))) {
     stop('orderBy values must be in `c("main", "gisaidEpiIsl", "random")`')
   }
@@ -383,7 +380,7 @@ getNucleotideAlignment <- function(session, orderBy = NULL, limit = NULL, offset
 #' @examples
 #' getNucleotideSequences(session, country = "Poland", dateDay = 5, dateMonth = 5, limit = 3, out = "lapis_sequences")
 #' @export
-getNucleotideSequences <- function(session, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = T, compression = NULL, out = "sequences", ...) {
+getNucleotideSequences <- function(session, orderBy = NULL, limit = NULL, offset = NULL, downloadAsFile = TRUE, compression = NULL, out = "sequences", ...) {
   if (!is.null(orderBy) && any(!orderBy %in% c("main", "gisaidEpiIsl", "random"))) {
     stop('orderBy values must be in `c("main", "gisaidEpiIsl", "random")`')
   }
@@ -422,7 +419,7 @@ getNucleotideSequences <- function(session, orderBy = NULL, limit = NULL, offset
 #' @examples
 #' session <- initialize("https://lapis.cov-spectrum.org/gisaid/v2", expireOnUpdate = TRUE)
 #' @export
-initialize <- function(host, accessKey = NULL, expireOnUpdate = F) {
+initialize <- function(host, accessKey = NULL, expireOnUpdate = FALSE) {
   databaseConfig <- getRequest(paste0(host, "/sample/databaseConfig"))
   referenceGenomeConfig <- getRequest(paste0(host, "/sample/referenceGenome"))
   session <- list(
