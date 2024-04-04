@@ -12,15 +12,16 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Add lintr options
+      - uses: r-lib/actions/setup-r@v4
+      - name: Install dependencies
         run: |
-          cat('\noptions(lintr.linter_file = ".lintr")\n', file = "~/.Rprofile", append = TRUE)
+          install.packages(c("remotes", "lintr"))
+          remotes::install_deps(dependencies = TRUE)
         shell: Rscript {0}
-
-      - name: Lint
-        run:
-          lintr::lint_package()
+      - name: Install package
+        run: R CMD INSTALL .
+      - name: Lint package
+        run: lintr::lint_package()
         shell: Rscript {0}
         env:
           LINTR_ERROR_ON_LINT: true
