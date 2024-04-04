@@ -8,6 +8,7 @@
 #' filters <- getFilters(session)
 #' @export
 getFilters <- function(session) {
+  #comment to test lintr action
   filters <- purrr::list_c(apply(session$metadata, 1, function(x) if (x["type"] %in% c("int", "float", "date")) c(x["name"], paste0(x["name"], c("From", "To"))) else x["name"]))
   names(filters) <- NULL
   union(filters, c("nucleotideMutations", "nucleotideInsertions", "aminoAcidMutations", "aminoAcidInsertions"))
@@ -162,7 +163,7 @@ getDetails <- function(session, fields = NULL, orderBy = NULL, limit = NULL, off
 #'
 #' Makes a request to the /sample/nucleotideMutations endpoint of LAPIS and parses the response
 #' @param session The current session
-#' @param orderBy The fields to order by. Available values: "mutation", "count", "proportion", "random"
+#' @param orderBy The fields to order by. Available values: "mutation", "count", "proportion", "sequenceName", "mutationFrom", "mutationTo", "position", "random"
 #' @param limit Maximum number of mutations to include
 #' @param offset Number of mutations to skip
 #' @param minProportion Minimal proportion required to include a mutation in the response
@@ -172,8 +173,8 @@ getDetails <- function(session, fields = NULL, orderBy = NULL, limit = NULL, off
 #' mutations <- getNucleotideMutations(session, region = "Europe", minProportion = 0.1, limit = 10)
 #' @export
 getNucleotideMutations <- function(session, orderBy = NULL, limit = NULL, offset = NULL, minProportion = 0.05, ...) {
-  if (!is.null(orderBy) && any(!orderBy %in% c("mutation", "count", "proportion", "random"))) {
-    stop('orderBy values must be in `c("mutation", "count", "proportion", "random")`')
+  if (!is.null(orderBy) && any(!orderBy %in% c("mutation", "count", "proportion", "sequenceName", "mutationFrom", "mutationTo", "position", "random"))) {
+    stop('orderBy values must be in `c("mutation", "count", "proportion", "sequenceName", "mutationFrom", "mutationTo", "position", "random")`')
   }
   if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
   if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
@@ -192,7 +193,7 @@ getNucleotideMutations <- function(session, orderBy = NULL, limit = NULL, offset
 #'
 #' Makes a request to the /sample/nucleotideInsertions endpoint of LAPIS and parses the response
 #' @param session The current session
-#' @param orderBy The fields to order by. Available values: "insertion", "count", "random"
+#' @param orderBy The fields to order by. Available values: "insertion", "count", "position", "sequenceName", "insertedSymbols", "random"
 #' @param limit Maximum number of insertions to include
 #' @param offset Number of insertions to skip
 #' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
@@ -201,8 +202,8 @@ getNucleotideMutations <- function(session, orderBy = NULL, limit = NULL, offset
 #' insertions <- getNucleotideInsertions(session, region = "Europe", limit = 10)
 #' @export
 getNucleotideInsertions <- function(session, orderBy = NULL, limit = NULL, offset = NULL, ...) {
-  if (!is.null(orderBy) && any(!orderBy %in% c("insertion", "count", "random"))) {
-    stop('orderBy values must be in `c("insertion", "count", "random")`')
+  if (!is.null(orderBy) && any(!orderBy %in% c("insertion", "count", "position", "sequenceName", "insertedSymbols", "random"))) {
+    stop('orderBy values must be in `c("insertion", "count", "position", "sequenceName", "insertedSymbols", "random")`')
   }
   if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
   if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
@@ -220,7 +221,7 @@ getNucleotideInsertions <- function(session, orderBy = NULL, limit = NULL, offse
 #'
 #' Makes a request to the /sample/aminoAcidMutations endpoint of LAPIS and parses the response
 #' @param session The current session
-#' @param orderBy The fields to order by. Available values: "mutation", "count", "proportion", "random"
+#' @param orderBy The fields to order by. Available values: "mutation", "count", "proportion", "sequenceName", "mutationFrom", "mutationTo", "position", "random"
 #' @param limit Maximum number of mutations to include
 #' @param offset Number of mutations to skip
 #' @param minProportion Minimal proportion required to include a mutation in the response
@@ -230,8 +231,8 @@ getNucleotideInsertions <- function(session, orderBy = NULL, limit = NULL, offse
 #' mutations <- getAminoAcidMutations(session, region = "Europe", minProportion = 0.1, limit = 10)
 #' @export
 getAminoAcidMutations <- function(session, orderBy = NULL, limit = NULL, offset = NULL, minProportion = 0.05, ...) {
-  if (!is.null(orderBy) && any(!orderBy %in% c("mutation", "count", "proportion", "random"))) {
-    stop('orderBy values must be in `c("mutation", "count", "proportion", "random")`')
+  if (!is.null(orderBy) && any(!orderBy %in% c("mutation", "count", "proportion", "sequenceName", "mutationFrom", "mutationTo", "position", "random"))) {
+    stop('orderBy values must be in `c("mutation", "count", "proportion", "sequenceName", "mutationFrom", "mutationTo", "position", "random")`')
   }
   if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
   if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")
@@ -250,7 +251,7 @@ getAminoAcidMutations <- function(session, orderBy = NULL, limit = NULL, offset 
 #'
 #' Makes a request to the /sample/aminoAcidInsertions endpoint of LAPIS and parses the response
 #' @param session The current session
-#' @param orderBy The fields to order by. Available values: "insertion", "count", "random"
+#' @param orderBy The fields to order by. Available values: "insertion", "count", "position", "sequenceName", "insertedSymbols", "random"
 #' @param limit Maximum number of insertions to include
 #' @param offset Number of insertions to skip
 #' @param ... Sequence filters. Valid filter keys can be found with `getFilters(session)`
@@ -259,8 +260,8 @@ getAminoAcidMutations <- function(session, orderBy = NULL, limit = NULL, offset 
 #' insertions <- getAminoAcidInsertions(session, region = "Europe", limit = 10)
 #' @export
 getAminoAcidInsertions <- function(session, orderBy = NULL, limit = NULL, offset = NULL, ...) {
-  if (!is.null(orderBy) && any(!orderBy %in% c("insertion", "count", "random"))) {
-    stop('orderBy values must be in `c("insertion", "count", "random")`')
+  if (!is.null(orderBy) && any(!orderBy %in% c("insertion", "count", "position", "sequenceName", "insertedSymbols", "random"))) {
+    stop('orderBy values must be in `c("insertion", "count", "position", "sequenceName", "insertedSymbols", "random")`')
   }
   if (!is.null(limit) && !(is.numeric(limit) && round(limit) == limit)) stop("Limit must be integer")
   if (!is.null(offset) && !(is.numeric(offset) && round(offset) == offset)) stop("Offset must be integer")

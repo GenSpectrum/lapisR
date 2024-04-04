@@ -4,7 +4,7 @@
 \alias{initialize}
 \title{Initialize LAPIS session}
 \usage{
-initialize(host, accessKey = NULL, expireOnUpdate = F)
+initialize(host, accessKey = NULL, expireOnUpdate = FALSE)
 }
 \arguments{
 \item{host}{URL of the host}

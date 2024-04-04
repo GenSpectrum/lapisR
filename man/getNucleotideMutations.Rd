@@ -16,7 +16,7 @@ getNucleotideMutations(
 \arguments{
 \item{session}{The current session}
 
-\item{orderBy}{The fields to order by. Available values: "mutation", "count", "proportion", "random"}
+\item{orderBy}{The fields to order by. Available values: "mutation", "count", "proportion", "sequenceName", "mutationFrom", "mutationTo", "position", "random"}
 
 \item{limit}{Maximum number of mutations to include}
 

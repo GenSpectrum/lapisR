@@ -10,7 +10,7 @@ getAminoAcidAlignment(
   orderBy = NULL,
   limit = NULL,
   offset = NULL,
-  downloadAsFile = T,
+  downloadAsFile = TRUE,
   compression = NULL,
   out = "aa_alignment",
   ...

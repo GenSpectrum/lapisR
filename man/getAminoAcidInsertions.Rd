@@ -15,7 +15,7 @@ getAminoAcidInsertions(
 \arguments{
 \item{session}{The current session}
 
-\item{orderBy}{The fields to order by. Available values: "insertion", "count", "random"}
+\item{orderBy}{The fields to order by. Available values: "insertion", "count", "position", "sequenceName", "insertedSymbols", "random"}
 
 \item{limit}{Maximum number of insertions to include}
 
